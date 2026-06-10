@@ -1,29 +1,44 @@
 import React, { use, useState } from "react";
-import axios from "axios"
+import axios from "axios";
+import { v4 as uuidv4 } from 'uuid';
+import { useRef } from "react";
 export default function Hero() {
-  const [userMsg, setuserMsg] = useState([]);
-    const [message,setmessage] =  useState([])
+  const  threadId =useRef(uuidv4())
+  const [userMsg, setuserMsg] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [isLoading, setisLoading] = useState(false);
 
   const handlechange = (e) => {
     setuserMsg(e.target.value);
   };
 
-  const handleclick = async() => {
-    if(userMsg.trim()=="")return 
-    setmessage(prev=>[...prev,userMsg])
-     setuserMsg("") 
-    try{
-    const res = await axios.post(`http://localhost:7004/user/query/${userMsg}`)
+  const handleclick = async () => {
+    if (isLoading || userMsg.trim() == "") return;
+    setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
+    setuserMsg("");
+    setisLoading(true);
+    try {
+      const res = await axios.post(
+        `http://localhost:7004/user/chat`,
+        { message: userMsg,
+          threadId:threadId.current
+        },
+        { withCredentials: true },
+      );
+      setMessages((prev) => [
+        ...prev,
+        { role: "Assistent", content: res.data.message },
+      ]);
       setuserMsg("");
-    }catch(error){
-        console.log(error);
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setisLoading(false);
     }
-  
   };
-
   const handleKeyPress = (e) => {
-    if (e.key == "Enter" &&!e.shiftKey) {
-      e.preventDefault(); 
+    if (e.key == "Enter" && !e.shiftKey) {
+      e.preventDefault();
       handleclick();
     }
   };
@@ -32,21 +47,24 @@ export default function Hero() {
     <>
       <div className="container mx-auto max-w-3xl pb-44">
         {/* user message */}
-         <div className="space-y-4">  {/* Adds spacing between messages */}
-          {message.map((msg, index) => (
-            <div 
+        <div className="space-y-4">
+          {" "}
+          {/* Adds spacing between messages */}
+          {messages.map((msg, index) => (
+            <div
               key={index}
-              className="my-6 bg-neutral-800 p-3 rounded-xl ml-auto max-w-fit"
+              className={`rounded-xl p-3  max-w-fit ${msg.role === "user" ? "bg-neutral-800 ml-auto" : "bg-neutral-900 mr-auto"} `}
             >
-              <h1>{msg}</h1>
+              <h1>{msg.content}</h1>
             </div>
           ))}
         </div>
-
-        {/* Assistent message */}
-        <div className="max-w-fit">
-          <h1>im fine, how are you?</h1>
-        </div>
+        {/* loading or thinking */}
+        {isLoading && (
+          <div className="bg-neutral-700 mr-auto rounded-xl p-3 max-w-fit">
+            <p className="text-gray-300">Thinking...</p>
+          </div>
+        )}
 
         {/* text area */}
         <div className="fixed inset-x-0 bottom-0 flex items-center justify-center bg-neutral-900 pb-2">
